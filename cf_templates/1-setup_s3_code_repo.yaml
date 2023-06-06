@@ -184,8 +184,9 @@ Resources:
 
                 def uploadfiles(event,context):
                     
+                    responsedata={}
                     logger.info('Copiando templates para o S3:')
-                    
+                    responsedata = {}
                     try:
                       for url in URLS:
                           a = urlparse(url)
@@ -196,9 +197,10 @@ Resources:
                           reponsedata['Error']=str(e)
                           logger.info(f'### Erro copiar arquivos: \n {responsedata}')
                           cfnresponse.send(event, context, cfnresponse.FAILED, responsedata) 
-                    
+                    return 'sucesso!'
+                
                 def emptybucket(event,context):
-                    
+                    responsedata={}
                     try:
                       response = s3.list_objects_v2(Bucket=BUCKET, Prefix=PREFIX)
 
@@ -209,16 +211,19 @@ Resources:
                           reponsedata['Error']=str(e)
                           logger.info(f'### Erro copiar arquivos: \n {responsedata}')
                           cfnresponse.send(event, context, cfnresponse.FAILED, responsedata) 
+                    return 'sucesso!'
                 
                 def lambda_handler(event, context):
                     
+                    responsedata={}
+
                     if event["RequestType"] == "Create":
                         
-                        uploadfiles(event,context)
+                      responsedata['Status']=uploadfiles(event,context)
                         
                     if event["RequestType"] == "Delete":
                         
-                        emptybucket(event,context)
+                      responsedata['Status']=emptybucket(event,context)
                     
                     cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData)            
       Environment:
