@@ -10,7 +10,19 @@ Parameters:
   OrgId:
     Type: String
     Description: "Nome do Bucket de Deployment"
-    ConstraintDescription: Preencher o nome corretamente.
+    ConstraintDescription: Preencher o Id corretamente.
+    AllowedPattern: o-[a-z0-9]{10,32}
+  GitToken:
+    Type: String 
+    Description: Token para autenticacao no GIT. (Temporariamente desabilitado)
+  Prefix:
+    Type: String 
+    Description: Prefixo do S3 para copia dos templates de deployment
+    Default: cf_templates
+  Repository:
+    Type: String 
+    Description: Repositorio Git para copia dos templates de deployment (Temporariamente desabilitado)
+    Default: alexandreags/aws-service-catalog-remote-deployment
 Resources:
   s3Bucket:
     Type: 'AWS::S3::Bucket'
@@ -87,14 +99,139 @@ Resources:
             Resource: '*'
   s3KeyAlias:
     Type: AWS::KMS::Alias
-      Properties: 
-        AliasName: !Join 
-          - '-'
-          - - !Ref BucketName
-            - !Ref 'AWS::AccountId'
-            - servicecatalog
-        TargetKeyId: !Ref s3Key
+    Properties: 
+      AliasName: !Join 
+        - '-'
+        - - !Ref BucketName
+          - !Ref 'AWS::AccountId'
+          - servicecatalog
+      TargetKeyId: !Ref s3Key
+  UploadFromGitRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+        - !Ref UploadFromGitLambdaPolicy
+  UploadFromGitLambdaPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            Resource:
+              - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*:*:*"
+          - Effect: Allow
+            Action:
+              - 'servicecatalog:*'
+            Resource:
+              - '*'
+  UploadFromGitLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.lambda_handler
+      Timeout: 30
+      FunctionName: !Join ['-', ['uploadfromgit', 'lambdafunction', !Ref AWS::AccountId]]
+      Role: !GetAtt 'UploadFromGitRole.Arn'
+      Runtime: python3.9
+      Code:
+        ZipFile: |
+                import json
+                import boto3
+                import urllib3
+                import os
+                from urllib.parse import urlparse
+                import logging 
+                from botocore.vendored import requests
+                import cfnresponse
 
+                responsedata = {}
+
+                logger = logging.getLogger()
+                logger.setLevel(logging.INFO)
+
+                s3=boto3.client('s3')
+                http=urllib3.PoolManager()
+
+                BUCKET=os.environ['BUCKET']
+                GIT_TOKEN=os.environ['GIT_TOKEN']
+                KEY_ARN=os.environ['KEY_ARN']
+                PREFIX=os.environ['PREFIX']
+                REPOSITORY=os.environ['REPOSITORY']
+
+                URLS={
+                    "https://raw.githubusercontent.com/alexandreags/aws-service-catalog-remote-deployment/main/cf_templates/1-setup_s3_code_repo.yaml",
+                    "https://raw.githubusercontent.com/alexandreags/aws-service-catalog-remote-deployment/main/cf_templates/2-setup_root_account.yaml",
+                    "https://raw.githubusercontent.com/alexandreags/aws-service-catalog-remote-deployment/main/cf_templates/3-iam_portfolios_deployment.yaml",
+                    "https://raw.githubusercontent.com/alexandreags/aws-service-catalog-remote-deployment/main/cf_templates/4-portfolios_setup.yaml"
+                    "https://raw.githubusercontent.com/alexandreags/aws-service-catalog-remote-deployment/main/cf_templates/5-main_product_setup.yaml",
+                    "https://raw.githubusercontent.com/alexandreags/aws-service-catalog-remote-deployment/main/cf_templates/6-new_products_setup.yaml"
+                }
+
+
+                def uploadfiles(event,context):
+                    
+                    logger.info('Copiando templates para o S3:')
+                    logger.info('responseData {}'.format(responseData))
+                    try:
+                      for url in URLS:
+                          a = urlparse(url)
+                          FILENAME = os.path.basename(a.path)
+                          logger.info(f'Copiando url {url} para o S3: {BUCKET + '/' + PREFIX + '/'+ FILENAME}')
+                          s3.upload_fileobj(http.request('GET', url,preload_content=False), BUCKET, PREFIX + '/'+ FILENAME)
+                    except Exception as e: 
+                          reponsedata['Error']=str(e)
+                          logger.info(f'### Erro copiar arquivos: \n {responsedata}')
+                          cfnresponse.send(event, context, cfnresponse.FAILED, responsedata) 
+                    
+                def emptybucket(event,context):
+                    
+                    try:
+                      response = s3.list_objects_v2(Bucket=BUCKET, Prefix=PREFIX)
+
+                      for object in response['Contents']:
+                          logger.info('Deletando', object['Key'])
+                          s3.delete_object(Bucket=BUCKET, Key=object['Key'])
+                      except Exception as e: 
+                          reponsedata['Error']=str(e)
+                          logger.info(f'### Erro copiar arquivos: \n {responsedata}')
+                          cfnresponse.send(event, context, cfnresponse.FAILED, responsedata) 
+                
+                def lambda_handler(event, context):
+                    
+                    if event["RequestType"] == "Create":
+                        
+                        uploadfiles(event,context)
+                        
+                    if event["RequestType"] == "Delete":
+                        
+                        emptybucket(event,context)
+                    
+                    cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData)            
+      Environment:
+        Variables:
+          BUCKET:	!Ref s3Bucket 
+          GIT_TOKEN: !Ref GitToken
+          KEY_ARN: !Ref s3Key
+          PREFIX: !Ref Prefix
+          REPOSITORY: !Ref Repository    
+
+  TriggerInitialization:
+    Type: Custom::InitializeUploadFromGit
+    Properties:
+      ServiceToken: !GetAtt UploadFromGitLambda.Arn
 Outputs:
   KeyARN:
     Description: S3 KMS ARN
