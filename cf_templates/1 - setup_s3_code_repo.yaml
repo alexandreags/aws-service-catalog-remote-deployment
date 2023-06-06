@@ -23,7 +23,14 @@ Resources:
       OwnershipControls:
         Rules:
         - ObjectOwnership: BucketOwnerPreferred
-      AccessControl: AwsExecRead    
+      AccessControl: AwsExecRead   
+    BucketEncryption:
+      ServerSideEncryptionConfiguration:
+        - ServerSideEncryptionByDefault:
+            SSEAlgorithm: 'aws:kms'
+            KMSMasterKeyID: !GetAtt s3Key.arn
+        BucketKeyEnabled: true
+    DeletionPolicy: Delete
   s3BucketPolicy:
     Type: AWS::S3::BucketPolicy
     Properties:
@@ -40,6 +47,9 @@ Resources:
                 - !Ref s3Bucket
                 - /*
             Principal: '*'
+            Condition:
+              StringEquals:
+                aws:PrincipalOrgId: !Ref OrgId
   s3Key:
     Type: 'AWS::KMS::Key'
     Properties:
@@ -49,8 +59,8 @@ Resources:
           - !Ref BucketName
           - !Ref 'AWS::AccountId'
           - ServiceCatalog
-      EnableKeyRotation: true
-      PendingWindowInDays: 20
+      EnableKeyRotation: false
+      MultiRegion: true
       KeyPolicy:
         Version: 2012-10-17
         Id: key-s3-1
@@ -58,31 +68,15 @@ Resources:
           - Sid: Enable IAM User Permissions
             Effect: Allow
             Principal:
-              AWS: 'arn:aws:iam::111122223333:root'
+              AWS: !Fn::Sub: "arn:aws:iam::${AWS::AccountId}:root"
             Action: 'kms:*'
-            Resource: '*'
-          - Sid: Allow administration of the key
-            Effect: Allow
-            Principal:
-              AWS: 'arn:aws:iam::111122223333:user/Alice'
-            Action:
-              - 'kms:Create*'
-              - 'kms:Describe*'
-              - 'kms:Enable*'
-              - 'kms:List*'
-              - 'kms:Put*'
-              - 'kms:Update*'
-              - 'kms:Revoke*'
-              - 'kms:Disable*'
-              - 'kms:Get*'
-              - 'kms:Delete*'
-              - 'kms:ScheduleKeyDeletion'
-              - 'kms:CancelKeyDeletion'
             Resource: '*'
           - Sid: Allow use of the key
             Effect: Allow
-            Principal:
-              AWS: 'arn:aws:iam::111122223333:user/Bob'
+            Principal: '*'
+            Condition:
+              StringEquals:
+                aws:PrincipalOrgId: !Ref OrgId
             Action:
               - 'kms:DescribeKey'
               - 'kms:Encrypt'
@@ -91,3 +85,14 @@ Resources:
               - 'kms:GenerateDataKey'
               - 'kms:GenerateDataKeyWithoutPlaintext'
             Resource: '*'
+Outputs:
+  KeyARN:
+    Description: S3 KMS ARN
+    Value: !GetAtt s3Key.arn
+    Export:
+      Name: kms_s3_arn
+  BucketName:
+    Description: Bucket Name
+    Value: !Ref s3Bucket
+    Export:
+      Name: s3_bucket_name

@@ -33,7 +33,7 @@ def enable_service_access(Principal):
     except Exception as e:
         error_handler(e)
 
-def register_delegated_admin(AccountId,Service,event):
+def manage_delegated_admin(AccountId,Service,event):
     try:
         if event['RequestType'] == 'Create':
             logger.info(f'Registrando delegated Admin para conta {AccountId}')
@@ -73,10 +73,10 @@ def lambda_handler(event,context):
         
         enable_service_access('servicecatalog.amazonaws.com')
         enable_service_access('member.org.stacksets.cloudformation.amazonaws.com')
-        register_delegated_admin(DeployAccountId,'servicecatalog.amazonaws.com', event)
-        register_delegated_admin(DeployAccountId,'cloudformation.amazonaws.com', event)
+        manage_delegated_admin(DeployAccountId,'servicecatalog.amazonaws.com', event)
+        manage_delegated_admin(DeployAccountId,'cloudformation.amazonaws.com', event)
 
     if event['RequestType'] == 'Delete':
 
-        register_delegated_admin(DeployAccountId,'servicecatalog.amazonaws.com', event)
-        register_delegated_admin(DeployAccountId,'cloudformation.amazonaws.com', event)
+        manage_delegated_admin(DeployAccountId,'servicecatalog.amazonaws.com', event)
+        manage_delegated_admin(DeployAccountId,'cloudformation.amazonaws.com', event)

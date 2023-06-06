@@ -1,0 +1,57 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'IAM Setup for Demo Portfolio in AWS Service Catalog'
+
+Parameters:
+  LaunchConstraintRoleName:
+    Description: Nome da role que será criada em todas as linkeds para execucao dos templates do Portfolio
+    Type: String
+    Default: ServiceCatalogLaunchRole
+    ConstraintDescription: Obrigatorio, minimo 5 caracteres
+    MinLength: 5
+  SCEndUserRoleName:
+    Description: Nome da role que será utilizada para iniciar produtos do Service Catalog
+    Type: String
+    Default: ServiceCatalogEndUserRole
+    ConstraintDescription: Obrigatorio
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: UserInfo
+      Parameters:
+      - LaunchConstraintRoleName
+      - SCEndUserRoleName
+Resources:
+  LaunchConstraintRole:
+        Type: AWS::IAM::Role
+        Properties:
+          AssumeRolePolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Principal:
+                  Service:
+                    - servicecatalog.amazonaws.com
+                Action: sts:AssumeRole
+          ManagedPolicyArns:
+            # Voce pode restringir o nivel de acesso da Role que executa os templates
+            # para somente alguns servicos, por exemplo EC2 e RDS.
+            - arn:aws:iam::aws:policy/AdministratorAccess
+
+SCEndUserRoleName:
+
+  Type: AWS::IAM::Role
+          Properties:
+            AssumeRolePolicyDocument:
+              Version: 2012-10-17
+              Statement:
+                - Effect: Allow
+                  Principal:
+                    Service:
+                      - servicecatalog.amazonaws.com
+                  Action: sts:AssumeRole
+            ManagedPolicyArns:
+              # Voce pode restringir o nivel de acesso da Role que executa os templates
+              # para somente alguns servicos, por exemplo EC2 e RDS.
+              - arn:aws:iam::aws:policy/AWSServiceCatalogEndUserFullAccess

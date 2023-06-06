@@ -1,0 +1,139 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: AWS Service Catalog Ominichannel Portfolio Setup for AWS Organizations Sharing
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: AWS SC Portfolio Information
+      Parameters:
+      - PortfolioProductName
+      - PortfolioProvider
+      - PortfolioDescription
+    - Label:
+        default: AWS SC Product Template Source Information
+      Parameters:
+      - RepoRootURL
+    - Label:
+        default: Launch Constraint IAM Configuration
+      Parameters:
+      - LocalLaunchRoleName
+Parameters:
+  PortfolioProvider:
+    Type: String
+    Description: Provider Name
+    Default: CCoE Embratel
+  PortfolioProductName:
+    Type: String
+    Description: Portfolio Name
+    Default: ServiceCatalogSharedPortfolio
+    AllowedPattern: "[a-zA-Z0-9]*"
+    ConstraintDescription: must contain only alphanumeric characters.
+  PortfolioDeployName:
+    Type: String
+    Description: Portfolio Name
+    Default: ServiceCatalogDeploymentPortfolio
+    AllowedPattern: "[a-zA-Z0-9]*"
+    ConstraintDescription: must contain only alphanumeric characters.
+  PortfolioDescription:
+    Type: String
+    Description: Portfolio Description
+    Default: Service Catalog Portfolio that contains reference architecture products
+      for AWS.
+  LocalLaunchRoleName:
+    Type: String
+    Description: Name of the launch constraint IAM role used for this portfolio (must
+      be precreated)
+  OrganizationID:
+    Type: String
+    Description: Organization ID (o-xxxxx, Required)
+  DeployCatalogRoles:
+    Type: String
+    Description: Aditional Roles with authorization to execute the catalog (comma separeted). Ex. CatalogUsers or embratel.atendimento,embratel.restrito,embratel.catalog
+    AllowedPattern: "([^,]+)"
+  ResourceBucket:
+    Type: String 
+    Description: Bucket onde estão os recursos para deployment da solucao
+  BucketPrefix:
+    Type: String 
+    Description: Bucket Prefix e zipfile onde estão os recursos para deployment da solucao
+    Default: servicecatalog/portfolio_config.zip
+Resources:
+  SCPortfolio:
+    Type: AWS::ServiceCatalog::Portfolio
+    Properties:
+      ProviderName:
+        Ref: PortfolioProvider
+      Description:
+        Ref: PortfolioDescription
+      DisplayName:
+        Ref: PortfolioProductName
+  SCDeployPortfolio:
+    Type: AWS::ServiceCatalog::Portfolio
+    Properties:
+      ProviderName:
+        Ref: PortfolioProvider
+      Description:
+        Ref: PortfolioDescription
+      DisplayName:
+        Ref: PortfolioDeployName
+  PortfolioShareRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AWSServiceCatalogAdminFullAccess
+        - arn:aws:iam::aws:policy/AWSOrganizationsFullAccess
+        - !Ref PortfolioShareLambdaPolicy
+  PortfolioShareLambdaPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            Resource:
+              - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*:*:*"
+          - Effect: Allow
+            Action:
+              - 'servicecatalog:*'
+            Resource:
+              - '*'
+  PortfolioShareLambda:
+    DependsOn: SCPortfolio
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.lambda_handler
+      Timeout: 30
+      FunctionName: !Join ['-', ['SCPortilioShare', 'LambdaFunction', !Ref AWS::AccountId]]
+      Role: !GetAtt 'PortfolioShareRole.Arn'
+      Runtime: python3.9
+      Code:
+        S3Bucket: !Ref ResourceBucket
+        S3Key: !Ref S3Key
+      Environment:
+        Variables:
+          PORTFOLIO_ID: !Ref SCPortfolio
+          ORGANIZATION_ID: !Ref OrganizationID
+          ROLELIST: !Ref DeployCatalogRoles     
+  TriggerInitialization:
+    Type: Custom::InitializePortfolioShare
+    Properties:
+      ServiceToken: !GetAtt PortfolioShareLambda.Arn
+      InstallDeployPortfolio: True
+Outputs:
+  SCPortfolioId:
+    Value:
+      Ref: SCPortfolio
+    Description: Portfolio Id of the newly created AWS Service Catalog Portfolio
