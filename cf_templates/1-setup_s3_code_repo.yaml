@@ -1,0 +1,108 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: "Stack para criar os recursos necessarios da solucao de Remote Deployment do Service Catalog. 
+https://github.com/alexandreags/aws-service-catalog-remote-deployment"
+Parameters:
+  BucketName:
+    Type: String
+    Description: "Nome do Bucket de Deployment"
+    ConstraintDescription: Preencher o nome corretamente. Minusculas, numeros e -
+    AllowedPattern: (?!(^xn--|.+-s3alias$))^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$
+  OrgId:
+    Type: String
+    Description: "Nome do Bucket de Deployment"
+    ConstraintDescription: Preencher o nome corretamente.
+Resources:
+  s3Bucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Join 
+          - '-'
+          - - !Ref BucketName
+            - !Ref 'AWS::AccountId'
+            - servicecatalog
+      OwnershipControls:
+        Rules:
+        - ObjectOwnership: BucketOwnerPreferred
+      AccessControl: AwsExecRead   
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: 'aws:kms'
+              KMSMasterKeyID: !GetAtt s3Key.Arn
+            BucketKeyEnabled: true
+    DeletionPolicy: Delete
+  s3BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref s3Bucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action:
+              - 's3:GetObject'
+            Effect: Allow
+            Resource: !Join
+              - ''
+              - - 'arn:aws:s3:::'
+                - !Ref s3Bucket
+                - /*
+            Principal: '*'
+            Condition:
+              StringEquals:
+                aws:PrincipalOrgId: !Ref OrgId
+  s3Key:
+    Type: 'AWS::KMS::Key'
+    Properties:
+      Description: !Join 
+        - '-'
+        - - 'Chave KMS para o bucket: '
+          - !Ref BucketName
+          - !Ref 'AWS::AccountId'
+          - ServiceCatalog
+      EnableKeyRotation: false
+      MultiRegion: true
+      KeyPolicy:
+        Version: 2012-10-17
+        Id: key-s3-1
+        Statement:
+          - Sid: Enable IAM User Permissions
+            Effect: Allow
+            Principal:
+              AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+            Action: 'kms:*'
+            Resource: '*'
+          - Sid: Allow use of the key
+            Effect: Allow
+            Principal: '*'
+            Condition:
+              StringEquals:
+                aws:PrincipalOrgId: !Ref OrgId
+            Action:
+              - 'kms:DescribeKey'
+              - 'kms:Encrypt'
+              - 'kms:Decrypt'
+              - 'kms:ReEncrypt*'
+              - 'kms:GenerateDataKey'
+              - 'kms:GenerateDataKeyWithoutPlaintext'
+            Resource: '*'
+  s3KeyAlias:
+    Type: AWS::KMS::Alias
+      Properties: 
+        AliasName: !Join 
+          - '-'
+          - - !Ref BucketName
+            - !Ref 'AWS::AccountId'
+            - servicecatalog
+        TargetKeyId: !Ref s3Key
+
+Outputs:
+  KeyARN:
+    Description: S3 KMS ARN
+    Value: !GetAtt s3Key.Arn
+    Export:
+      Name: kms-s3-arn
+  BucketName:
+    Description: Bucket Name
+    Value: !Ref s3Bucket
+    Export:
+      Name: s3-bucket-name
