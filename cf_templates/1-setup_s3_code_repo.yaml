@@ -1,4 +1,4 @@
-AWSTemplateFormatVersion: '2010-09-09'
+AWSTemplateFormatVersion: "2010-09-09"
 Description: "Stack para criar os recursos necessarios da solucao de Remote Deployment do Service Catalog. 
 https://github.com/alexandreags/aws-service-catalog-remote-deployment"
 Parameters:
@@ -9,9 +9,9 @@ Parameters:
     AllowedPattern: (?!(^xn--|.+-s3alias$))^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$
   OrgId:
     Type: String
-    Description: "Nome do Bucket de Deployment"
+    Description: "ID da Organization"
     ConstraintDescription: Preencher o Id corretamente.
-    AllowedPattern: o-[a-z0-9]{10,32}
+    AllowedPattern: 'o-[a-z0-9]{10,32}'
   GitToken:
     Type: String 
     Description: Token para autenticacao no GIT. (Temporariamente desabilitado)
@@ -101,8 +101,9 @@ Resources:
     Type: AWS::KMS::Alias
     Properties: 
       AliasName: !Join 
-        - '-'
-        - - !Ref BucketName
+        - ''
+        - - 'alias/'
+          - !Ref BucketName
           - !Ref 'AWS::AccountId'
           - servicecatalog
       TargetKeyId: !Ref s3Key
@@ -184,12 +185,12 @@ Resources:
                 def uploadfiles(event,context):
                     
                     logger.info('Copiando templates para o S3:')
-                    logger.info('responseData {}'.format(responseData))
+                    
                     try:
                       for url in URLS:
                           a = urlparse(url)
                           FILENAME = os.path.basename(a.path)
-                          logger.info(f'Copiando url {url} para o S3: {BUCKET + '/' + PREFIX + '/'+ FILENAME}')
+                          logger.info(f'Copiando url {url} para o S3: {BUCKET}/{PREFIX}/{FILENAME}')
                           s3.upload_fileobj(http.request('GET', url,preload_content=False), BUCKET, PREFIX + '/'+ FILENAME)
                     except Exception as e: 
                           reponsedata['Error']=str(e)
@@ -204,7 +205,7 @@ Resources:
                       for object in response['Contents']:
                           logger.info('Deletando', object['Key'])
                           s3.delete_object(Bucket=BUCKET, Key=object['Key'])
-                      except Exception as e: 
+                    except Exception as e: 
                           reponsedata['Error']=str(e)
                           logger.info(f'### Erro copiar arquivos: \n {responsedata}')
                           cfnresponse.send(event, context, cfnresponse.FAILED, responsedata) 
@@ -222,7 +223,7 @@ Resources:
                     cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData)            
       Environment:
         Variables:
-          BUCKET:	!Ref s3Bucket 
+          BUCKET: !Ref s3Bucket
           GIT_TOKEN: !Ref GitToken
           KEY_ARN: !Ref s3Key
           PREFIX: !Ref Prefix
