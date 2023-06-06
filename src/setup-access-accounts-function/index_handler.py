@@ -14,7 +14,7 @@ logger.addHandler(logging.StreamHandler())
 ####
 # Env Variables:
 
-DeployAccountId = os.eviron['DeployAccountId']
+DEPLOY_ACCOUNT_ID = os.eviron['DEPLOY_ACCOUNT_ID']
 
 AWS_REGION_NAME = 'us-east-1'
 
@@ -73,10 +73,10 @@ def lambda_handler(event,context):
         
         enable_service_access('servicecatalog.amazonaws.com')
         enable_service_access('member.org.stacksets.cloudformation.amazonaws.com')
-        manage_delegated_admin(DeployAccountId,'servicecatalog.amazonaws.com', event)
-        manage_delegated_admin(DeployAccountId,'cloudformation.amazonaws.com', event)
+        manage_delegated_admin(DEPLOY_ACCOUNT_ID,'servicecatalog.amazonaws.com', event)
+        manage_delegated_admin(DEPLOY_ACCOUNT_ID,'cloudformation.amazonaws.com', event)
 
     if event['RequestType'] == 'Delete':
 
-        manage_delegated_admin(DeployAccountId,'servicecatalog.amazonaws.com', event)
-        manage_delegated_admin(DeployAccountId,'cloudformation.amazonaws.com', event)
+        manage_delegated_admin(DEPLOY_ACCOUNT_ID,'servicecatalog.amazonaws.com', event)
+        manage_delegated_admin(DEPLOY_ACCOUNT_ID,'cloudformation.amazonaws.com', event)

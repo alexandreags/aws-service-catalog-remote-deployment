@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Stack para criar os recursos necessarios da solucao de Remote Deployment do Service Catalog. 
-https://github.com/alexandreags/aws-service-catalog-remote-deployment
+Description: "Stack para criar os recursos necessarios da solucao de Remote Deployment do Service Catalog. 
+https://github.com/alexandreags/aws-service-catalog-remote-deployment"
 Transform: AWS::LanguageExtensions
 Parameters:
   BucketName:
@@ -24,12 +24,12 @@ Resources:
         Rules:
         - ObjectOwnership: BucketOwnerPreferred
       AccessControl: AwsExecRead   
-    BucketEncryption:
-      ServerSideEncryptionConfiguration:
-        - ServerSideEncryptionByDefault:
-            SSEAlgorithm: 'aws:kms'
-            KMSMasterKeyID: !GetAtt s3Key.arn
-        BucketKeyEnabled: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: 'aws:kms'
+              KMSMasterKeyID: !GetAtt s3Key.Arn
+            BucketKeyEnabled: true
     DeletionPolicy: Delete
   s3BucketPolicy:
     Type: AWS::S3::BucketPolicy
@@ -68,7 +68,7 @@ Resources:
           - Sid: Enable IAM User Permissions
             Effect: Allow
             Principal:
-              AWS: !Fn::Sub: "arn:aws:iam::${AWS::AccountId}:root"
+              AWS: !Fn::Sub: "arn:aws:iam::{AWS::AccountId}:root"
             Action: 'kms:*'
             Resource: '*'
           - Sid: Allow use of the key
@@ -88,7 +88,7 @@ Resources:
 Outputs:
   KeyARN:
     Description: S3 KMS ARN
-    Value: !GetAtt s3Key.arn
+    Value: !GetAtt s3Key.Arn
     Export:
       Name: kms_s3_arn
   BucketName:

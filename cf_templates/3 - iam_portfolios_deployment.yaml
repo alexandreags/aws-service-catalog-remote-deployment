@@ -24,34 +24,35 @@ Metadata:
       - SCEndUserRoleName
 Resources:
   LaunchConstraintRole:
-        Type: AWS::IAM::Role
-        Properties:
-          AssumeRolePolicyDocument:
-            Version: 2012-10-17
-            Statement:
-              - Effect: Allow
-                Principal:
-                  Service:
-                    - servicecatalog.amazonaws.com
-                Action: sts:AssumeRole
-          ManagedPolicyArns:
-            # Voce pode restringir o nivel de acesso da Role que executa os templates
-            # para somente alguns servicos, por exemplo EC2 e RDS.
-            - arn:aws:iam::aws:policy/AdministratorAccess
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Ref LaunchConstraintRoleName
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - servicecatalog.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        # Voce pode restringir o nivel de acesso da Role que executa os templates
+        # para somente alguns servicos, por exemplo EC2 e RDS.
+        - arn:aws:iam::aws:policy/AdministratorAccess
 
-SCEndUserRoleName:
-
-  Type: AWS::IAM::Role
-          Properties:
-            AssumeRolePolicyDocument:
-              Version: 2012-10-17
-              Statement:
-                - Effect: Allow
-                  Principal:
-                    Service:
-                      - servicecatalog.amazonaws.com
-                  Action: sts:AssumeRole
-            ManagedPolicyArns:
-              # Voce pode restringir o nivel de acesso da Role que executa os templates
-              # para somente alguns servicos, por exemplo EC2 e RDS.
-              - arn:aws:iam::aws:policy/AWSServiceCatalogEndUserFullAccess
+  SCEndUserRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Ref SCEndUserRoleName
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - servicecatalog.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        # Voce pode restringir o nivel de acesso da Role que executa os templates
+        # para somente alguns servicos, por exemplo EC2 e RDS.
+        - arn:aws:iam::aws:policy/AWSServiceCatalogEndUserFullAccess

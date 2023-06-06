@@ -10,14 +10,6 @@ Metadata:
       - PortfolioProductName
       - PortfolioProvider
       - PortfolioDescription
-    - Label:
-        default: AWS SC Product Template Source Information
-      Parameters:
-      - RepoRootURL
-    - Label:
-        default: Launch Constraint IAM Configuration
-      Parameters:
-      - LocalLaunchRoleName
 Parameters:
   PortfolioProvider:
     Type: String
@@ -40,10 +32,6 @@ Parameters:
     Description: Portfolio Description
     Default: Service Catalog Portfolio that contains reference architecture products
       for AWS.
-  LocalLaunchRoleName:
-    Type: String
-    Description: Name of the launch constraint IAM role used for this portfolio (must
-      be precreated)
   OrganizationID:
     Type: String
     Description: Organization ID (o-xxxxx, Required)
@@ -111,7 +99,6 @@ Resources:
             Resource:
               - '*'
   PortfolioShareLambda:
-    DependsOn: SCPortfolio
     Type: AWS::Lambda::Function
     Properties:
       Handler: index.lambda_handler
@@ -121,7 +108,7 @@ Resources:
       Runtime: python3.9
       Code:
         S3Bucket: !Ref ResourceBucket
-        S3Key: !Ref S3Key
+        S3Key: !Ref BucketPrefix
       Environment:
         Variables:
           PORTFOLIO_ID: !Ref SCPortfolio
